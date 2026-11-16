@@ -65,7 +65,7 @@ function generateRepairTicketPdf(ticket, res, download = false) {
   doc.roundedRect(left, 38, contentW, 68, 6).fillAndStroke('#f0f9ff', '#0284c7');
 
   doc.fillColor('#0369a1').font('Sarabun-Bold').fontSize(16)
-    .text('ใบแจ้งซ่อมบำรุงออนไลน์', left + 16, 48, { width: 320 });
+    .text('ใบแจ้งซ่อมคอมพิวเตอร์ออนไลน์', left + 16, 48, { width: 320 });
   doc.fillColor('#334155').font('Sarabun').fontSize(11)
     .text('โรงพยาบาลโคกศรีสุพรรณ จังหวัดสกลนคร', left + 16, 70, { width: 320 });
   doc.fillColor('#64748b').fontSize(9.5)
@@ -175,7 +175,7 @@ function generateRepairTicketPdf(ticket, res, download = false) {
   // ===== FOOTER =====
   const nowStr = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
   doc.fillColor('#94a3b8').font('Sarabun').fontSize(8.5)
-    .text(`พิมพ์จากระบบแจ้งซ่อมบำรุงออนไลน์ โรงพยาบาลโคกศรีสุพรรณ | พิมพ์เมื่อ ${nowStr}`, left, 785, {
+    .text(`พิมพ์จากระบบซ่อมคอมพิวเตอร์ออนไลน์ โรงพยาบาลโคกศรีสุพรรณ | พิมพ์เมื่อ ${nowStr}`, left, 785, {
       width: contentW,
       align: 'center',
     });
@@ -206,7 +206,7 @@ function generateRepairBoardPdf(items, filterDesc, res, download = false) {
 
   const drawHeader = () => {
     doc.fillColor('#0369a1').font('Sarabun-Bold').fontSize(14)
-      .text('ตารางรายการแจ้งซ่อมบำรุง (กระดานแจ้งซ่อม) โรงพยาบาลโคกศรีสุพรรณ', left, 26, { width: contentW, align: 'center' });
+      .text('ตารางรายการแจ้งซ่อมคอมพิวเตอร์ออนไลน์ โรงพยาบาลโคกศรีสุพรรณ', left, 26, { width: contentW, align: 'center' });
     doc.fillColor('#475569').font('Sarabun').fontSize(9.5)
       .text(filterDesc || 'รายการทั้งหมด', left, 46, { width: contentW, align: 'center' });
 
