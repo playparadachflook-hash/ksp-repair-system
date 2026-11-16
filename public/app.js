@@ -169,6 +169,7 @@ function switchTab(tab) {
       document.getElementById('fDatemeet').value = new Date().toISOString().slice(0, 10);
     }
     if (tab === 'reports') loadReports();
+    if (tab === 'admin') loadAdminList(1);
     if (tab === 'categories') renderCategories();
     if (tab === 'technicians') renderTechnicians();
     if (tab === 'units') renderUnits();
@@ -589,6 +590,92 @@ async function loadReports() {
     renderTable('สรุปตามช่างผู้รับผิดชอบ', ['ชื่อช่าง', 'จำนวนงาน'], techRows) +
     renderTable('สรุปตามประเภทรายการซ่อม', ['ประเภท', 'จำนวน', 'ค่าใช้จ่าย (บ.)'], catRows) +
     renderTable('สรุปตามหน่วยงาน', ['หน่วยงาน', 'จำนวน', 'ค่าใช้จ่าย (บ.)'], deptRows);
+}
+
+// ==================== ADMIN APPROVAL & ASSIGNMENT ====================
+async function loadAdminList(page = 1) {
+  const params = new URLSearchParams({
+    page,
+    limit: 30,
+    status: document.getElementById('adminFilterStatus').value,
+    q: document.getElementById('adminFilterQ').value,
+  });
+  const data = await api(`/api/repairs?${params.toString()}`);
+  const tbody = document.getElementById('adminTbody');
+
+  if (!data.items.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#64748b;padding:24px;">ไม่พบรายการในสถานะที่เลือก</td></tr>';
+  } else {
+    tbody.innerHTML = data.items
+      .map((r) => {
+        const st = STATUS_MAP[r.b_status] || { label: r.b_status, cls: 'badge-0' };
+        const unit = r.unit_name || r.unit_out || '-';
+        const assignee = [...(r.equipNames || []), r.assigned_to || ''].filter(Boolean).join(', ') || '-';
+        return `
+          <tr>
+            <td><strong>#${r.row_id}</strong></td>
+            <td style="white-space:nowrap">${fmtThaiDate(r.datemeet)}<br><small style="color:#64748b">${esc(r.s_time || '')}</small></td>
+            <td><strong>${esc(r.subject)}</strong>${r.perhead ? `<br><small style="color:#64748b">ครุภัณฑ์: ${esc(r.perhead)}</small>` : ''}</td>
+            <td>${esc(unit)}</td>
+            <td>${esc(r.numper || r.perbook || '-')}</td>
+            <td>${esc(assignee)}</td>
+            <td><span class="badge ${st.cls}">${st.label}</span></td>
+            <td style="white-space:nowrap">
+              <button class="btn btn-outline btn-sm" onclick="viewRepair(${r.row_id})">👁️ ดู PDF</button>
+              <button class="btn btn-primary btn-sm" onclick="openAdminActionModal(${r.row_id})">✅ อนุมัติ / มอบหมาย</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  document.getElementById('adminPagination').innerHTML = `
+    <div>ทั้งหมด <strong>${data.total.toLocaleString()}</strong> รายการ (หน้า ${data.page} / ${data.totalPages})</div>
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-outline btn-sm" ${data.page <= 1 ? 'disabled' : ''} onclick="loadAdminList(${data.page - 1})">◀ ก่อนหน้า</button>
+      <button class="btn btn-outline btn-sm" ${data.page >= data.totalPages ? 'disabled' : ''} onclick="loadAdminList(${data.page + 1})">ถัดไป ▶</button>
+    </div>
+  `;
+}
+
+async function openAdminActionModal(id) {
+  const r = await api(`/api/repairs/${id}`);
+  document.getElementById('aaRowId').textContent = r.row_id;
+  document.getElementById('aaId').value = r.row_id;
+  document.getElementById('aaSummary').innerHTML = `
+    <strong>เรื่อง:</strong> ${esc(r.subject)}<br>
+    <strong>หน่วยงาน:</strong> ${esc(r.unit_name || r.unit_out || '-')} | <strong>ผู้แจ้ง:</strong> ${esc(r.numper || '-')} | <strong>วันที่:</strong> ${fmtThaiDate(r.datemeet)}
+  `;
+  document.getElementById('aaStatus').value = String(r.b_status ?? 0);
+  document.getElementById('aaAssignedTo').value = r.assigned_to || '';
+  document.getElementById('aaPrice').value = r.pricefixing || 0;
+  document.getElementById('aaMemo1').value = r.memo1 || '';
+
+  document.getElementById('aaEquipChecks').innerHTML = state.technicians
+    .map((t) => `<label><input type="checkbox" name="aaEquip" value="${t.row_id}" ${r.equipIds.includes(String(t.row_id)) ? 'checked' : ''} /> ${esc(t.name)}</label>`)
+    .join('');
+
+  document.getElementById('adminActionModal').classList.remove('hidden');
+}
+
+async function submitAdminAction(e) {
+  e.preventDefault();
+  const id = document.getElementById('aaId').value;
+  const equipIds = Array.from(document.querySelectorAll('input[name="aaEquip"]:checked')).map((c) => c.value);
+  await api(`/api/repairs/${id}/approve`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      b_status: Number(document.getElementById('aaStatus').value),
+      equipIds,
+      assigned_to: document.getElementById('aaAssignedTo').value,
+      pricefixing: Number(document.getElementById('aaPrice').value || 0),
+      memo1: document.getElementById('aaMemo1').value,
+    }),
+  });
+  closeModal('adminActionModal');
+  await loadStats();
+  loadAdminList(1);
 }
 
 // ==================== MASTER CRUD ====================

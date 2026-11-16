@@ -125,10 +125,11 @@ function generateRepairTicketPdf(ticket, res, download = false) {
   y += 20;
 
   const techNames = (ticket.equipNames && ticket.equipNames.length) ? ticket.equipNames.join(', ') : '-';
+  const assignee = [techNames !== '-' ? techNames : '', ticket.assigned_to || ''].filter(Boolean).join(' / ') || '-';
   const costText = `${Number(ticket.pricefixing || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} บาท`;
 
   const rows2 = [
-    ['เจ้าหน้าที่ผู้ตรวจสอบ (ช่าง)', techNames],
+    ['ผู้รับผิดชอบ / ช่างผู้ดำเนินการ', assignee],
     ['สถานะการดำเนินการ', st.label, true],
     ['การดำเนินแก้ไขปัญหา', ticket.memo1 || '-'],
     ['ค่าใช้จ่ายในการซ่อม', costText],

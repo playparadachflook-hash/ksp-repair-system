@@ -38,6 +38,7 @@ function initSchema() {
       pricefixing REAL DEFAULT 0,
       bill_oil TEXT DEFAULT '',
       user_id INTEGER DEFAULT 0,
+      assigned_to TEXT DEFAULT '',
       d_update TEXT
     );
 
@@ -106,6 +107,11 @@ function initSchema() {
       d_update TEXT
     );
   `);
+
+  const cols = db.prepare('PRAGMA table_info(bookroom)').all().map((c) => c.name);
+  if (!cols.includes('assigned_to')) {
+    db.exec("ALTER TABLE bookroom ADD COLUMN assigned_to TEXT DEFAULT ''");
+  }
 }
 
 function seedDefaultsIfEmpty() {

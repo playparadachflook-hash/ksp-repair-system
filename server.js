@@ -369,6 +369,28 @@ app.put('/api/repairs/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.patch('/api/repairs/:id/approve', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare('SELECT * FROM bookroom WHERE row_id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'ไม่พบข้อมูลใบแจ้งซ่อม' });
+
+  const { b_status, equipIds, assigned_to, memo1, pricefixing } = req.body;
+  const equipStr = Array.isArray(equipIds) ? (equipIds.length ? `${equipIds.join('|')}|` : '') : existing.equip;
+
+  db.prepare(
+    `UPDATE bookroom SET b_status = ?, equip = ?, assigned_to = ?, memo1 = ?, pricefixing = ?, d_update = ? WHERE row_id = ?`
+  ).run(
+    Number(b_status ?? existing.b_status),
+    equipStr,
+    (assigned_to ?? existing.assigned_to ?? '').trim(),
+    memo1 !== undefined ? memo1 : existing.memo1,
+    pricefixing !== undefined ? Number(pricefixing) : existing.pricefixing,
+    nowSql(),
+    id
+  );
+  res.json({ ok: true });
+});
+
 app.patch('/api/repairs/:id/status', requireAuth, (req, res) => {
   const id = Number(req.params.id);
   const existing = db.prepare('SELECT * FROM bookroom WHERE row_id = ?').get(id);
