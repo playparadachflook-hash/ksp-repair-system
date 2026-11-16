@@ -22,9 +22,14 @@ function smartDecode(val) {
   return iconv.decode(buf, 'win874');
 }
 
-function cleanDate(val) {
+function cleanDate(val, fallbackDate) {
   if (!val || val === '0000-00-00' || val === '0000-00-00 00:00:00') return null;
-  return String(val);
+  const s = String(val);
+  const year = Number(s.slice(0, 4));
+  if (year > 2035 && fallbackDate && !String(fallbackDate).startsWith('0000')) {
+    return `${String(fallbackDate).slice(0, 4)}${s.slice(4)}`;
+  }
+  return s;
 }
 
 async function migrate() {
@@ -173,7 +178,7 @@ async function migrate() {
           smartDecode(r.passenger) || '',
           smartDecode(r.tel) || '',
           r.room_id || 0,
-          cleanDate(r.datemeet),
+          cleanDate(r.datemeet, r.datereg),
           smartDecode(r.s_time) || '',
           smartDecode(r.e_time) || '',
           smartDecode(r.equip) || '',
