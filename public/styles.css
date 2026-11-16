@@ -273,6 +273,39 @@ tbody tr:hover { background: #f0f9ff; }
   padding: 18px 22px;
 }
 .modal-box.modal-sm { max-width: 420px; }
+.modal-box.modal-pdf {
+  max-width: 960px;
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 18px;
+}
+.pdf-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pdf-viewer-wrap {
+  position: relative;
+  flex: 1;
+  background: #334155;
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 480px;
+}
+.pdf-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+.pdf-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 15px;
+  background: rgba(15, 23, 42, 0.65);
+  pointer-events: none;
+}
 .modal-head {
   display: flex;
   justify-content: space-between;

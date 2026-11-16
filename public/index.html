@@ -337,17 +337,22 @@
     </div>
   </div>
 
-  <!-- DETAIL / PRINT MODAL -->
-  <div id="detailModal" class="modal hidden">
-    <div class="modal-box">
-      <div class="modal-head no-print">
-        <h3>รายละเอียดใบแจ้งซ่อม #<span id="dRowId"></span></h3>
-        <div>
-          <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ พิมพ์ใบแจ้งซ่อม</button>
-          <button class="close-btn" onclick="closeModal('detailModal')">✕</button>
+  <!-- DETAIL / A4 PDF PREVIEW MODAL -->
+  <div id="detailModal" class="modal hidden no-print">
+    <div class="modal-box modal-pdf">
+      <div class="modal-head">
+        <h3 id="pdfModalTitle">ตัวอย่างเอกสาร PDF (ขนาด A4)</h3>
+        <div class="pdf-toolbar">
+          <a id="pdfDownloadBtn" class="btn btn-primary btn-sm" href="#" download>⬇️ ดาวน์โหลด PDF</a>
+          <button class="btn btn-outline btn-sm" onclick="printPdfFrame()">🖨️ พิมพ์ (Print)</button>
+          <a id="pdfNewTabBtn" class="btn btn-outline btn-sm" href="#" target="_blank">↗️ เปิดแท็บใหม่</a>
+          <button class="close-btn" onclick="closePdfModal()">✕</button>
         </div>
       </div>
-      <div id="detailBody" class="print-area"></div>
+      <div class="pdf-viewer-wrap">
+        <div id="pdfLoading" class="pdf-loading">กำลังสร้างไฟล์ PDF ขนาด A4...</div>
+        <iframe id="pdfFrame" class="pdf-frame" title="PDF Preview"></iframe>
+      </div>
     </div>
   </div>
 

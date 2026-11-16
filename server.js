@@ -3,6 +3,7 @@ const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const db = require('./src/db');
+const { generateRepairTicketPdf, generateRepairBoardPdf } = require('./src/pdf');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3530);
@@ -177,6 +178,81 @@ app.get('/api/repairs', (req, res) => {
     limit: pageSize,
     totalPages: Math.ceil(totalRow.cnt / pageSize) || 1,
   });
+});
+
+app.get('/api/repairs/board/pdf', (req, res) => {
+  const { month, year, status, room_id, unit_id, q } = req.query;
+  const where = [];
+  const params = [];
+  if (year) {
+    where.push("strftime('%Y', b.datemeet) = ?");
+    params.push(String(year));
+  }
+  if (month && Number(month) > 0) {
+    where.push("strftime('%m', b.datemeet) = ?");
+    params.push(String(month).padStart(2, '0'));
+  }
+  if (status !== undefined && status !== '') {
+    where.push('b.b_status = ?');
+    params.push(Number(status));
+  }
+  if (room_id) {
+    where.push('b.room_id = ?');
+    params.push(Number(room_id));
+  }
+  if (unit_id) {
+    where.push('b.unit_id = ?');
+    params.push(Number(unit_id));
+  }
+  if (q && q.trim()) {
+    const like = `%${q.trim()}%`;
+    where.push('(b.subject LIKE ? OR b.perhead LIKE ? OR b.numper LIKE ? OR b.perbook LIKE ?)');
+    params.push(like, like, like, like);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const rows = db
+    .prepare(
+      `SELECT b.*, r.name AS room_name, u.unit_name AS unit_name
+       FROM bookroom b
+       LEFT JOIN room r ON r.row_id = b.room_id
+       LEFT JOIN unit_all u ON u.row_id = b.unit_id
+       ${whereSql}
+       ORDER BY b.datemeet DESC, b.row_id DESC
+       LIMIT 200`
+    )
+    .all(...params);
+
+  const equips = db.prepare('SELECT row_id, name FROM equip').all();
+  const equipMap = Object.fromEntries(equips.map((e) => [String(e.row_id), e.name]));
+  const items = rows.map((row) => {
+    const equipIds = (row.equip || '').split('|').filter(Boolean);
+    return { ...row, equipNames: equipIds.map((id) => equipMap[id] || id) };
+  });
+
+  const parts = [];
+  if (year) parts.push(`ปี พ.ศ. ${Number(year) + 543}`);
+  if (month && Number(month) > 0) parts.push(`เดือน ${month}`);
+  parts.push(`จำนวน ${items.length} รายการ`);
+  generateRepairBoardPdf(items, parts.join(' | '), res, req.query.download === '1');
+});
+
+app.get('/api/repairs/:id/pdf', (req, res) => {
+  const row = db
+    .prepare(
+      `SELECT b.*, r.name AS room_name, u.unit_name AS unit_name
+       FROM bookroom b
+       LEFT JOIN room r ON r.row_id = b.room_id
+       LEFT JOIN unit_all u ON u.row_id = b.unit_id
+       WHERE b.row_id = ?`
+    )
+    .get(Number(req.params.id));
+  if (!row) return res.status(404).json({ error: 'ไม่พบข้อมูลใบแจ้งซ่อม' });
+
+  const equips = db.prepare('SELECT row_id, name FROM equip').all();
+  const equipMap = Object.fromEntries(equips.map((e) => [String(e.row_id), e.name]));
+  const equipIds = (row.equip || '').split('|').filter(Boolean);
+  const ticket = { ...row, equipIds, equipNames: equipIds.map((id) => equipMap[id] || id) };
+  generateRepairTicketPdf(ticket, res, req.query.download === '1');
 });
 
 app.get('/api/repairs/:id', (req, res) => {

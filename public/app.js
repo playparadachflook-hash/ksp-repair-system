@@ -233,35 +233,52 @@ document.getElementById('filterQ').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') loadRepairs(1);
 });
 
+function openPdfModal(title, pdfUrl) {
+  const modal = document.getElementById('detailModal');
+  const frame = document.getElementById('pdfFrame');
+  const loading = document.getElementById('pdfLoading');
+  const dlBtn = document.getElementById('pdfDownloadBtn');
+  const newTabBtn = document.getElementById('pdfNewTabBtn');
+
+  document.getElementById('pdfModalTitle').textContent = title;
+  const sep = pdfUrl.includes('?') ? '&' : '?';
+  dlBtn.href = `${pdfUrl}${sep}download=1`;
+  newTabBtn.href = pdfUrl;
+
+  loading.classList.remove('hidden');
+  frame.onload = () => loading.classList.add('hidden');
+  frame.src = pdfUrl;
+  modal.classList.remove('hidden');
+}
+
+function closePdfModal() {
+  document.getElementById('pdfFrame').src = 'about:blank';
+  closeModal('detailModal');
+}
+
+function printPdfFrame() {
+  const frame = document.getElementById('pdfFrame');
+  try {
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+  } catch {
+    window.open(document.getElementById('pdfNewTabBtn').href, '_blank');
+  }
+}
+
 async function viewRepair(id) {
-  const r = await api(`/api/repairs/${id}`);
-  const st = STATUS_MAP[r.b_status] || { label: r.b_status, cls: 'badge-0' };
-  document.getElementById('dRowId').textContent = r.row_id;
-  document.getElementById('detailBody').innerHTML = `
-    <div style="text-align:center;margin-bottom:14px;">
-      <h2 style="margin:0;">ใบแจ้งซ่อมบำรุง โรงพยาบาลโคกศรีสุพรรณ</h2>
-      <p style="margin:4px 0;color:#64748b;">เลขที่ใบซ่อม: <strong>#${r.row_id}</strong> | วันที่บันทึก: ${esc(r.datereg || '-')}</p>
-    </div>
-    <table class="detail-table">
-      <tr><th>หน่วยงานที่แจ้งซ่อม</th><td>${esc(r.unit_name || r.unit_out || '-')}</td></tr>
-      <tr><th>ประเภทรายการซ่อม</th><td>${esc(r.room_name || '-')}</td></tr>
-      <tr><th>รายการส่งซ่อม / อาการ</th><td><strong>${esc(r.subject)}</strong></td></tr>
-      <tr><th>หมายเลขครุภัณฑ์ / ยี่ห้อ</th><td>${esc(r.perhead || '-')} ${r.passenger ? `(ยี่ห้อ: ${esc(r.passenger)})` : ''}</td></tr>
-      <tr><th>ผู้แจ้งซ่อม / โทร</th><td>${esc(r.numper || '-')} ${r.tel ? `(โทร. ${esc(r.tel)})` : ''}</td></tr>
-      <tr><th>วันที่ให้ดำเนินการ</th><td>${fmtThaiDate(r.datemeet)} เวลา ${esc(r.s_time || '')} - ${esc(r.e_time || '')} น.</td></tr>
-      <tr><th>ตรวจสอบเบื้องต้น / หมายเหตุ</th><td>${esc(r.memo || '-')}</td></tr>
-      <tr><th>เจ้าหน้าที่ผู้ตรวจสอบ</th><td>${esc(r.equipNames.join(', ') || '-')}</td></tr>
-      <tr><th>สถานะ</th><td><span class="badge ${st.cls}">${st.label}</span></td></tr>
-      <tr><th>การดำเนินแก้ไขปัญหา</th><td>${esc(r.memo1 || '-')}</td></tr>
-      <tr><th>ค่าใช้จ่ายในการซ่อม</th><td>${Number(r.pricefixing || 0).toLocaleString()} บาท</td></tr>
-      <tr><th>ผู้บันทึก / มอบหมาย</th><td>${esc(r.perbook || '-')}</td></tr>
-    </table>
-  `;
-  document.getElementById('detailModal').classList.remove('hidden');
+  openPdfModal(`ใบแจ้งซ่อมบำรุง #${id} (ขนาด A4)`, `/api/repairs/${id}/pdf`);
 }
 
 function printBoard() {
-  window.print();
+  const params = new URLSearchParams({
+    q: document.getElementById('filterQ').value,
+    year: document.getElementById('filterYear').value,
+    month: document.getElementById('filterMonth').value,
+    status: document.getElementById('filterStatus').value,
+    room_id: document.getElementById('filterCategory').value,
+  });
+  openPdfModal('ตารางรายการแจ้งซ่อมบำรุง (ขนาด A4 แนวนอน)', `/api/repairs/board/pdf?${params.toString()}`);
 }
 
 // ==================== CREATE / EDIT REPAIR ====================
