@@ -5,6 +5,9 @@ const state = {
   units: [],
   currentTab: 'list',
   mineOnly: false,
+  viewMode: 'calendar',
+  calYear: new Date().getFullYear(),
+  calMonth: new Date().getMonth() + 1,
   page: 1,
   masterType: null,
   masterEditId: null,
@@ -46,10 +49,16 @@ async function api(url, opts = {}) {
   return data;
 }
 
+const THAI_FULL_MONTHS = [
+  'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+];
+const THAI_DAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+
 async function init() {
   await Promise.all([loadAuth(), loadStats(), loadMasterLists()]);
   populateYearDropdowns();
-  loadRepairs(1);
+  setViewMode('calendar');
 }
 
 async function loadAuth() {
@@ -146,9 +155,14 @@ function switchTab(tab) {
 
   if (tab === 'list' || tab === 'mine') {
     state.mineOnly = tab === 'mine';
-    document.getElementById('listTitle').textContent = state.mineOnly ? 'รายการแจ้งซ่อมของฉัน' : 'รายการแจ้งซ่อมบำรุง';
+    document.getElementById('listTitle').textContent = state.mineOnly
+      ? 'รายการแจ้งซ่อมของฉัน'
+      : state.viewMode === 'calendar'
+      ? 'ปฏิทินรายการแจ้งซ่อมบำรุง'
+      : 'รายการแจ้งซ่อมบำรุง';
     document.getElementById('view-list').classList.remove('hidden');
-    loadRepairs(1);
+    if (state.viewMode === 'calendar') loadCalendar();
+    else loadRepairs(1);
   } else {
     document.getElementById(`view-${tab}`).classList.remove('hidden');
     if (tab === 'create' && !document.getElementById('fDatemeet').value) {
@@ -162,15 +176,158 @@ function switchTab(tab) {
   }
 }
 
-// ==================== REPAIRS LIST ====================
-async function loadRepairs(page = 1) {
+// ==================== CALENDAR & REPAIRS LIST ====================
+function setViewMode(mode) {
+  state.viewMode = mode;
+  document.getElementById('btnViewCal').classList.toggle('active', mode === 'calendar');
+  document.getElementById('btnViewTable').classList.toggle('active', mode === 'table');
+  document.getElementById('calendarContainer').classList.toggle('hidden', mode !== 'calendar');
+  document.getElementById('tableContainer').classList.toggle('hidden', mode !== 'table');
+  document.getElementById('listTitle').textContent = state.mineOnly
+    ? 'รายการแจ้งซ่อมของฉัน'
+    : mode === 'calendar'
+    ? 'ปฏิทินรายการแจ้งซ่อมบำรุง'
+    : 'รายการแจ้งซ่อมบำรุง';
+
+  if (mode === 'calendar') {
+    loadCalendar();
+  } else {
+    loadRepairs(1);
+  }
+}
+
+function applyFilters() {
+  const fy = document.getElementById('filterYear').value;
+  const fm = Number(document.getElementById('filterMonth').value || 0);
+  if (state.viewMode === 'calendar') {
+    if (fy) state.calYear = Number(fy);
+    if (fm > 0) state.calMonth = fm;
+    loadCalendar();
+  } else {
+    loadRepairs(1);
+  }
+}
+
+function shiftCalMonth(delta) {
+  state.calMonth += delta;
+  if (state.calMonth > 12) {
+    state.calMonth = 1;
+    state.calYear += 1;
+  } else if (state.calMonth < 1) {
+    state.calMonth = 12;
+    state.calYear -= 1;
+  }
+  loadCalendar();
+}
+
+function goCalToday() {
+  const now = new Date();
+  state.calYear = now.getFullYear();
+  state.calMonth = now.getMonth() + 1;
+  loadCalendar();
+}
+
+async function loadCalendar() {
+  const y = state.calYear;
+  const m = state.calMonth;
+  document.getElementById('calMonthLabel').textContent = `${THAI_FULL_MONTHS[m - 1]} พ.ศ. ${y + 543}`;
+  document.getElementById('filterYear').value = String(y);
+  document.getElementById('filterMonth').value = String(m);
+
+  const params = new URLSearchParams({
+    page: 1,
+    limit: 500,
+    year: y,
+    month: m,
+    q: document.getElementById('filterQ').value,
+    status: document.getElementById('filterStatus').value,
+    room_id: document.getElementById('filterCategory').value,
+    mine: state.mineOnly ? '1' : '0',
+  });
+  const data = await api(`/api/repairs?${params.toString()}`);
+
+  const byDate = {};
+  for (const r of data.items) {
+    const d = (r.datemeet || '').slice(0, 10);
+    if (!byDate[d]) byDate[d] = [];
+    byDate[d].push(r);
+  }
+
+  const firstDay = new Date(y, m - 1, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const prevMonthDays = new Date(y, m - 1, 0).getDate();
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  let html = THAI_DAYS.map((d, idx) => {
+    const cls = idx === 0 ? 'sun' : idx === 6 ? 'sat' : '';
+    return `<div class="cal-day-head ${cls}">${d}</div>`;
+  }).join('');
+
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+  for (let cell = 0; cell < totalCells; cell++) {
+    const dayNum = cell - firstDay + 1;
+    let cellClass = 'cal-cell';
+    let displayNum = dayNum;
+    let isoDate = '';
+
+    if (dayNum <= 0) {
+      cellClass += ' other-month';
+      displayNum = prevMonthDays + dayNum;
+    } else if (dayNum > daysInMonth) {
+      cellClass += ' other-month';
+      displayNum = dayNum - daysInMonth;
+    } else {
+      isoDate = `${y}-${String(m).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      if (isoDate === todayIso) cellClass += ' today';
+    }
+
+    const dayItems = isoDate ? byDate[isoDate] || [] : [];
+    const visibleItems = dayItems.slice(0, 4);
+    const hiddenCount = dayItems.length - visibleItems.length;
+
+    const itemsHtml = visibleItems
+      .map((r) => {
+        const unit = r.unit_name || r.unit_out || '';
+        const title = `#${r.row_id} ${r.subject}${unit ? ' (' + unit + ')' : ''}`;
+        return `<div class="cal-item st-${r.b_status}" title="${esc(title)}" onclick="viewRepair(${r.row_id})">
+          <strong>#${r.row_id}</strong> ${esc(r.subject)}
+        </div>`;
+      })
+      .join('');
+
+    const moreHtml = hiddenCount > 0
+      ? `<div class="cal-more" onclick="openDayInTable('${isoDate}')">+ อีก ${hiddenCount} รายการ</div>`
+      : '';
+
+    html += `
+      <div class="${cellClass}">
+        <div class="cal-cell-top">
+          <span class="cal-day-num">${displayNum}</span>
+          ${dayItems.length ? `<span class="cal-count">${dayItems.length} งาน</span>` : ''}
+        </div>
+        ${itemsHtml}
+        ${moreHtml}
+      </div>
+    `;
+  }
+
+  document.getElementById('calendarGrid').innerHTML = html;
+}
+
+function openDayInTable(isoDate) {
+  setViewMode('table');
+  loadRepairs(1, isoDate);
+}
+
+async function loadRepairs(page = 1, exactDate = '') {
   state.page = page;
   const params = new URLSearchParams({
     page,
     limit: 30,
+    date: exactDate,
     q: document.getElementById('filterQ').value,
-    year: document.getElementById('filterYear').value,
-    month: document.getElementById('filterMonth').value,
+    year: exactDate ? '' : document.getElementById('filterYear').value,
+    month: exactDate ? '0' : document.getElementById('filterMonth').value,
     status: document.getElementById('filterStatus').value,
     room_id: document.getElementById('filterCategory').value,
     mine: state.mineOnly ? '1' : '0',
@@ -222,15 +379,19 @@ async function loadRepairs(page = 1) {
 
 function resetFilters() {
   document.getElementById('filterQ').value = '';
-  document.getElementById('filterYear').value = '';
-  document.getElementById('filterMonth').value = '0';
   document.getElementById('filterStatus').value = '';
   document.getElementById('filterCategory').value = '';
-  loadRepairs(1);
+  if (state.viewMode === 'calendar') {
+    goCalToday();
+  } else {
+    document.getElementById('filterYear').value = '';
+    document.getElementById('filterMonth').value = '0';
+    loadRepairs(1);
+  }
 }
 
 document.getElementById('filterQ').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') loadRepairs(1);
+  if (e.key === 'Enter') applyFilters();
 });
 
 function openPdfModal(title, pdfUrl) {

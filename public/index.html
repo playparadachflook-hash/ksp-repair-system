@@ -67,8 +67,12 @@
     <section id="view-list" class="tab-view">
       <div class="card">
         <div class="card-header">
-          <h2 id="listTitle">รายการแจ้งซ่อมบำรุง</h2>
+          <h2 id="listTitle">ปฏิทินรายการแจ้งซ่อมบำรุง</h2>
           <div class="card-actions no-print">
+            <div class="view-toggle">
+              <button class="btn btn-sm active" id="btnViewCal" onclick="setViewMode('calendar')">📅 ปฏิทิน</button>
+              <button class="btn btn-sm" id="btnViewTable" onclick="setViewMode('table')">📋 ตาราง</button>
+            </div>
             <button class="btn btn-outline" onclick="printBoard()">🖨️ พิมพ์ตาราง (กระดาน)</button>
             <button class="btn btn-primary" onclick="switchTab('create')">➕ แจ้งซ่อมใหม่</button>
           </div>
@@ -92,31 +96,53 @@
             <option value="9">ยกเลิก</option>
           </select>
           <select id="filterCategory"><option value="">-- ทุกประเภท --</option></select>
-          <button class="btn btn-primary" onclick="loadRepairs(1)">ค้นหา</button>
+          <button class="btn btn-primary" onclick="applyFilters()">ค้นหา</button>
           <button class="btn btn-outline" onclick="resetFilters()">ล้างตัวกรอง</button>
         </div>
 
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>เลขที่</th>
-                <th>วันที่แจ้ง</th>
-                <th>เวลา</th>
-                <th>ประเภทซ่อม</th>
-                <th>อุปกรณ์ / อาการที่ส่งซ่อม</th>
-                <th>เลขครุภัณฑ์ / ยี่ห้อ</th>
-                <th>หน่วยงาน</th>
-                <th>ผู้แจ้งซ่อม</th>
-                <th>ช่างผู้รับผิดชอบ</th>
-                <th>สถานะ</th>
-                <th class="no-print">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody id="repairsTbody"></tbody>
-          </table>
+        <!-- CALENDAR VIEW -->
+        <div id="calendarContainer">
+          <div class="cal-nav no-print">
+            <div class="cal-nav-left">
+              <button class="btn btn-outline btn-sm" onclick="shiftCalMonth(-1)">◀ เดือนก่อน</button>
+              <button class="btn btn-outline btn-sm" onclick="goCalToday()">วันนี้</button>
+              <button class="btn btn-outline btn-sm" onclick="shiftCalMonth(1)">เดือนถัดไป ▶</button>
+            </div>
+            <h3 id="calMonthLabel" class="cal-month-label"></h3>
+            <div class="cal-legend">
+              <span class="badge badge-0">รอตรวจสอบ</span>
+              <span class="badge badge-1">กำลังดำเนินการ</span>
+              <span class="badge badge-6">เสร็จเรียบร้อย</span>
+              <span class="badge badge-9">ยกเลิก</span>
+            </div>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
         </div>
-        <div class="pagination no-print" id="pagination"></div>
+
+        <!-- TABLE VIEW -->
+        <div id="tableContainer" class="hidden">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>เลขที่</th>
+                  <th>วันที่แจ้ง</th>
+                  <th>เวลา</th>
+                  <th>ประเภทซ่อม</th>
+                  <th>อุปกรณ์ / อาการที่ส่งซ่อม</th>
+                  <th>เลขครุภัณฑ์ / ยี่ห้อ</th>
+                  <th>หน่วยงาน</th>
+                  <th>ผู้แจ้งซ่อม</th>
+                  <th>ช่างผู้รับผิดชอบ</th>
+                  <th>สถานะ</th>
+                  <th class="no-print">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="repairsTbody"></tbody>
+            </table>
+          </div>
+          <div class="pagination no-print" id="pagination"></div>
+        </div>
       </div>
     </section>
 

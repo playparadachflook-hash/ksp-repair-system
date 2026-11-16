@@ -147,7 +147,7 @@ app.get('/api/repairs', (req, res) => {
   const totalRow = db.prepare(`SELECT COUNT(*) AS cnt FROM bookroom b ${whereSql}`).get(...params);
 
   const pageNum = Math.max(1, Number(page) || 1);
-  const pageSize = Math.min(200, Math.max(1, Number(limit) || 50));
+  const pageSize = Math.min(500, Math.max(1, Number(limit) || 50));
   const offset = (pageNum - 1) * pageSize;
 
   const rows = db
