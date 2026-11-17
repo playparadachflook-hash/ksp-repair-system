@@ -154,13 +154,17 @@ function generateRepairTicketPdf(ticket, res, download = false) {
   }
 
   // ===== SECTION 3: SIGNATURE BLOCK =====
-  const sigY = Math.max(y + 24, 632);
+  let sigY = y + 24;
+  if (sigY + 170 > 775) {
+    doc.addPage({ size: 'A4', margins: { top: 40, bottom: 40, left: 42, right: 42 } });
+    sigY = 60;
+  }
   const colW = contentW / 3;
 
   const sigs = [
-    { title: 'ผู้แจ้งซ่อม', sub: '', name: ticket.numper || '' },
-    { title: 'ช่างผู้ตรวจสอบ / ดำเนินการ', sub: '', name: techNames !== '-' ? techNames.split(',')[0].trim() : '' },
-    { title: 'นายแพทย์ชำนาญการพิเศษ', sub: 'รักษาการในตำแหน่ง\nผู้อำนวยการ รพ.โคกศรีสุพรรณ', name: 'นางณัฐปภัสร์ นวัตชัยศิริกุล' },
+    { title: 'ผู้แจ้งซ่อม', name: ticket.numper || '' },
+    { title: 'ช่างผู้ตรวจสอบ / ดำเนินการ', name: techNames !== '-' ? techNames.split(',')[0].trim() : '' },
+    { title: 'หัวหน้างาน / ผู้รับรอง', name: '' },
   ];
 
   sigs.forEach((s, idx) => {
@@ -169,12 +173,18 @@ function generateRepairTicketPdf(ticket, res, download = false) {
       .text('ลงชื่อ ...............................................', sx, sigY, { width: colW, align: 'center' });
     doc.text(`( ${s.name ? s.name : '...........................................'} )`, sx, sigY + 17, { width: colW, align: 'center' });
     doc.font('Sarabun-Bold').text(s.title, sx, sigY + 34, { width: colW, align: 'center' });
-    if (s.sub) {
-      doc.font('Sarabun').fontSize(8.5).text(s.sub, sx, sigY + 49, { width: colW, align: 'center' });
-    }
     doc.font('Sarabun').fontSize(8.5).fillColor('#64748b')
-      .text('วันที่ ........../........../..........', sx, sigY + (s.sub ? 75 : 52), { width: colW, align: 'center' });
+      .text('วันที่ ........../........../..........', sx, sigY + 51, { width: colW, align: 'center' });
   });
+
+  // ===== DIRECTOR SIGNATURE (CENTER BOTTOM) =====
+  const dirY = sigY + 84;
+  doc.fillColor('#0f172a').font('Sarabun').fontSize(9.5)
+    .text('ลงชื่อ ...............................................', left, dirY, { width: contentW, align: 'center' })
+    .text('( นางณัฐปภัสร์ นวัตชัยศิริกุล )', left, dirY + 17, { width: contentW, align: 'center' });
+  doc.font('Sarabun-Bold').text('นายแพทย์ชำนาญการพิเศษ', left, dirY + 34, { width: contentW, align: 'center' });
+  doc.font('Sarabun').fontSize(9)
+    .text('รักษาการในตำแหน่ง\nผู้อำนวยการ รพ.โคกศรีสุพรรณ', left, dirY + 50, { width: contentW, align: 'center' });
 
   // ===== FOOTER =====
   const nowStr = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
@@ -280,14 +290,13 @@ function generateRepairBoardPdf(items, filterDesc, res, download = false) {
     doc.addPage({ size: 'A4', layout: 'landscape', margins: { top: 32, bottom: 32, left: 30, right: 30 } });
     y = 40;
   }
-  const dirX = left + contentW - 260;
   const dirY = y + 18;
   doc.fillColor('#0f172a').font('Sarabun').fontSize(9.5)
-    .text('ลงชื่อ ...............................................', dirX, dirY, { width: 260, align: 'center' })
-    .text('( นางณัฐปภัสร์ นวัตชัยศิริกุล )', dirX, dirY + 17, { width: 260, align: 'center' });
-  doc.font('Sarabun-Bold').text('นายแพทย์ชำนาญการพิเศษ', dirX, dirY + 34, { width: 260, align: 'center' });
+    .text('ลงชื่อ ...............................................', left, dirY, { width: contentW, align: 'center' })
+    .text('( นางณัฐปภัสร์ นวัตชัยศิริกุล )', left, dirY + 17, { width: contentW, align: 'center' });
+  doc.font('Sarabun-Bold').text('นายแพทย์ชำนาญการพิเศษ', left, dirY + 34, { width: contentW, align: 'center' });
   doc.font('Sarabun').fontSize(9)
-    .text('รักษาการในตำแหน่ง\nผู้อำนวยการ รพ.โคกศรีสุพรรณ', dirX, dirY + 50, { width: 260, align: 'center' });
+    .text('รักษาการในตำแหน่ง\nผู้อำนวยการ รพ.โคกศรีสุพรรณ', left, dirY + 50, { width: contentW, align: 'center' });
 
   doc.end();
 }
