@@ -605,21 +605,13 @@ tbody tr:hover { background: #f0f9ff; }
   gap: 12px;
   padding: 24px 5vw;
 }
-.login-split-box {
-  background: #ffffff;
-  width: 100%;
-  max-width: 760px;
-  border-radius: 22px;
-  overflow: hidden;
-  display: grid;
-  grid-template-columns: 1.05fr 1fr;
-  box-shadow: 0 28px 72px rgba(6, 182, 212, 0.34), 0 0 0 1px rgba(99, 102, 241, 0.32);
+$10 28px 72px rgba(2, 132, 199, 0.34), 0 10px 30px rgba(15, 23, 42, 0.16);
   padding: 0;
 }
 .login-left {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(155deg, #3730a3 0%, #2563eb 52%, #0891b2 100%);
+  background: linear-gradient(155deg, #1d4ed8 0%, #0284c7 55%, #06b6d4 100%);
   color: #ffffff;
   padding: 36px 28px;
   display: flex;
@@ -627,14 +619,6 @@ tbody tr:hover { background: #f0f9ff; }
   align-items: center;
   justify-content: center;
   text-align: center;
-}
-.login-left::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.22) 1.5px, transparent 1.5px), linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
-  background-size: 22px 22px, 44px 44px, 44px 44px;
-  pointer-events: none;
 }
 .login-left > * {
   position: relative;
@@ -779,8 +763,8 @@ tbody tr:hover { background: #f0f9ff; }
 }
 .login-input-wrap input:focus {
   outline: none;
-  border-color: #0891b2;
-  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.18);
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.18);
 }
 .login-eye-btn {
   position: absolute;
@@ -806,12 +790,7 @@ tbody tr:hover { background: #f0f9ff; }
   padding: 11px 16px;
   border: none;
   border-radius: 10px;
-  background: linear-gradient(90deg, #4338ca 0%, #0891b2 100%);
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 8px 20px rgba(8, 145, 178, 0.34);
+  background: linear-gradient(90deg, #1d4ed8 0%, #06b6d4 100%);$20 8px 20px rgba(2, 132, 199, 0.34);
   transition: transform 0.15s, box-shadow 0.15s;
 }
 .btn-login-submit:hover {
