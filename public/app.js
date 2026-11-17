@@ -366,7 +366,7 @@ async function loadRepairs(page = 1, exactDate = '') {
             <td>${esc(techs)}</td>
             <td><span class="badge ${st.cls}">${st.label}</span></td>
             <td class="no-print" style="white-space:nowrap">
-              <button class="btn btn-outline btn-sm" onclick="viewRepair(${r.row_id})">ดู/พิมพ์</button>
+              <button class="btn btn-outline btn-sm" onclick="viewRepair(${r.row_id})">${state.user?.isAdmin ? 'ดู/พิมพ์' : 'ดูรายละเอียด'}</button>
               ${canEdit ? `<button class="btn btn-primary btn-sm" onclick="editRepair(${r.row_id})">แก้ไข</button>` : ''}
               ${state.user?.isAdmin ? `<button class="btn btn-danger btn-sm" onclick="deleteRepair(${r.row_id})">ลบ</button>` : ''}
             </td>
@@ -403,6 +403,10 @@ document.getElementById('filterQ').addEventListener('keydown', (e) => {
 });
 
 function openPdfModal(title, pdfUrl) {
+  if (!state.user?.isAdmin) {
+    alert('เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถดาวน์โหลดหรือพิมพ์เอกสารได้');
+    return;
+  }
   const modal = document.getElementById('detailModal');
   const frame = document.getElementById('pdfFrame');
   const loading = document.getElementById('pdfLoading');
@@ -435,8 +439,42 @@ function printPdfFrame() {
   }
 }
 
+async function openRequestDetailModal(id) {
+  const r = await api(`/api/repairs/${id}`);
+  const st = STATUS_MAP[r.b_status] || { label: `สถานะ ${r.b_status}`, cls: 'badge-0' };
+  const unit = r.unit_name || r.unit_out || '-';
+  const techs = r.equipNames && r.equipNames.length ? r.equipNames.join(', ') : '-';
+  document.getElementById('reqDetailTitle').textContent = `รายละเอียดการแจ้งซ่อม #${r.row_id}`;
+  document.getElementById('reqDetailBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;font-size:14px;">
+      <div><strong>เลขที่ใบแจ้งซ่อม:</strong> #${r.row_id}</div>
+      <div><strong>สถานะ:</strong> <span class="badge ${st.cls}">${st.label}</span></div>
+      <div><strong>วันที่แจ้ง:</strong> ${fmtThaiDate(r.datemeet)}</div>
+      <div><strong>เวลา:</strong> ${esc(r.s_time || '-')}${r.e_time ? ' - ' + esc(r.e_time) : ''}</div>
+      <div style="grid-column:1/-1;"><strong>อาการ / เรื่องที่แจ้ง:</strong> ${esc(r.subject || '-')}</div>
+      <div><strong>ประเภทรายการซ่อม:</strong> ${esc(r.room_name || '-')}</div>
+      <div><strong>สถานที่ / รหัสครุภัณฑ์:</strong> ${esc(r.perhead || '-')}${r.passenger ? ` (${esc(r.passenger)})` : ''}</div>
+      <div><strong>ผู้แจ้ง:</strong> ${esc(r.numper || r.perbook || '-')}</div>
+      <div><strong>เบอร์โทร:</strong> ${esc(r.tel || '-')}</div>
+      <div><strong>หน่วยงาน:</strong> ${esc(unit)}</div>
+      <div><strong>ช่างผู้รับผิดชอบ:</strong> ${esc(techs)}</div>
+      <div style="grid-column:1/-1;"><strong>รายละเอียดเพิ่มเติม:</strong> ${esc(r.memo || '-')}</div>
+      <div style="grid-column:1/-1;"><strong>ผลการดำเนินการ / ความเห็นช่าง:</strong> ${esc(r.memo1 || '-')}</div>
+    </div>
+  `;
+  document.getElementById('requestDetailModal').classList.remove('hidden');
+}
+
 async function viewRepair(id) {
-  openPdfModal(`ใบแจ้งซ่อมบำรุง #${id} (ขนาด A4)`, `/api/repairs/${id}/pdf`);
+  if (state.user?.isAdmin) {
+    openPdfModal(`ใบแจ้งซ่อมบำรุง #${id} (ขนาด A4)`, `/api/repairs/${id}/pdf`);
+  } else {
+    try {
+      await openRequestDetailModal(id);
+    } catch (err) {
+      alert(err.message);
+    }
+  }
 }
 
 function printBoard() {
@@ -594,7 +632,7 @@ async function loadReports() {
     <div class="report-box">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <h3 style="margin:0;">${title}</h3>
-        <button class="btn btn-outline btn-sm" onclick="printReportSection('${section}', '${title}')">🖨️ พิมพ์ / PDF</button>
+        ${state.user?.isAdmin ? `<button class="btn btn-outline btn-sm" onclick="printReportSection('${section}', '${title}')">🖨️ พิมพ์ / PDF</button>` : ''}
       </div>
       <div class="table-wrap">
         <table>
