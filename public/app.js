@@ -59,6 +59,7 @@ async function init() {
   await Promise.all([loadAuth(), loadStats(), loadMasterLists()]);
   populateYearDropdowns();
   setViewMode('calendar');
+  if (!state.user) openLoginModal();
 }
 
 async function loadAuth() {
@@ -846,11 +847,14 @@ async function deleteMaster(ep, id, refreshFn) {
 // ==================== LOGIN / MODALS ====================
 function openLoginModal() {
   document.getElementById('loginError').classList.add('hidden');
+  const closeBtn = document.querySelector('#loginModal .close-btn');
+  if (closeBtn) closeBtn.classList.toggle('hidden', !state.user);
   document.getElementById('loginModal').classList.remove('hidden');
   document.getElementById('loginUser').focus();
 }
 
 function closeModal(id) {
+  if (id === 'loginModal' && !state.user) return;
   document.getElementById(id).classList.add('hidden');
 }
 
@@ -880,6 +884,7 @@ async function logout() {
   state.user = null;
   renderAuth();
   switchTab('list');
+  openLoginModal();
 }
 
 init();
