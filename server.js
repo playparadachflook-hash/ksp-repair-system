@@ -3,7 +3,7 @@ const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const db = require('./src/db');
-const { generateRepairTicketPdf, generateRepairBoardPdf } = require('./src/pdf');
+const { generateRepairTicketPdf, generateRepairBoardPdf, generateReportSectionPdf } = require('./src/pdf');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3530);
@@ -410,19 +410,45 @@ app.delete('/api/repairs/:id', requireAdmin, (req, res) => {
 });
 
 // ==================== REPORTS ====================
-app.get('/api/reports/summary', (req, res) => {
-  const { year, month } = req.query;
+function buildReportFilter(query, col = 'b.datemeet') {
+  const { date, year, month, fiscalYear } = query;
   const where = [];
   const params = [];
-  if (year) {
-    where.push("strftime('%Y', b.datemeet) = ?");
-    params.push(String(year));
+  const desc = [];
+
+  if (date) {
+    where.push(`${col} = ?`);
+    params.push(date);
+    desc.push(`วันที่ ${date}`);
+  } else if (fiscalYear) {
+    const fy = Number(fiscalYear);
+    const ce = fy > 2400 ? fy - 543 : fy;
+    const start = `${ce - 1}-10-01`;
+    const end = `${ce}-09-30`;
+    where.push(`${col} >= ? AND ${col} <= ?`);
+    params.push(start, end);
+    desc.push(`ปีงบประมาณ ${ce + 543} (${start} ถึง ${end})`);
+  } else {
+    if (year) {
+      where.push(`strftime('%Y', ${col}) = ?`);
+      params.push(String(year));
+      desc.push(`ปี พ.ศ. ${Number(year) + 543}`);
+    }
+    if (month && Number(month) > 0) {
+      where.push(`strftime('%m', ${col}) = ?`);
+      params.push(String(month).padStart(2, '0'));
+      desc.push(`เดือน ${month}`);
+    }
   }
-  if (month && Number(month) > 0) {
-    where.push("strftime('%m', b.datemeet) = ?");
-    params.push(String(month).padStart(2, '0'));
-  }
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  return {
+    whereSql: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    params,
+    filterDesc: desc.join(' | ') || 'ข้อมูลทั้งหมด',
+  };
+}
+
+function getRepairReportData(query) {
+  const { whereSql, params, filterDesc } = buildReportFilter(query);
 
   const byDepartment = db
     .prepare(
@@ -451,41 +477,87 @@ app.get('/api/reports/summary', (req, res) => {
     .all(...params);
 
   const byStatus = db
-    .prepare(
-      `SELECT b.b_status, COUNT(*) AS total
-       FROM bookroom b
-       ${whereSql}
-       GROUP BY b.b_status`
-    )
+    .prepare(`SELECT b.b_status, COUNT(*) AS total FROM bookroom b ${whereSql} GROUP BY b.b_status`)
     .all(...params);
 
   const equips = db.prepare('SELECT row_id, name FROM equip ORDER BY row_id').all();
-  const tickets = db.prepare(`SELECT equip, unit_out, unit_id FROM bookroom b ${whereSql}`).all(...params);
+  const tickets = db
+    .prepare(`SELECT row_id, datemeet, subject, equip, unit_out FROM bookroom b ${whereSql} ORDER BY b.datemeet DESC, b.row_id DESC`)
+    .all(...params);
 
-  const techCounts = equips.map((e) => ({
-    row_id: e.row_id,
-    name: e.name,
-    total: tickets.filter((t) => (t.equip || '').split('|').includes(String(e.row_id))).length,
-  }));
+  const byTechnician = equips.map((e) => {
+    const matched = tickets.filter((t) => (t.equip || '').split('|').includes(String(e.row_id)));
+    const jobs = matched.slice(0, 15).map((t) => `${t.datemeet || ''}: ${t.subject || '-'}`);
+    return {
+      row_id: e.row_id,
+      name: e.name,
+      total: matched.length,
+      jobsSummary: jobs.join(' | ') + (matched.length > 15 ? ` ... (+อีก ${matched.length - 15} งาน)` : ''),
+      jobs: matched.slice(0, 15).map((t) => ({ row_id: t.row_id, datemeet: t.datemeet, subject: t.subject || '-' })),
+    };
+  });
 
-  const internalCount = tickets.filter((t) => !t.unit_out).length;
-  const externalCount = tickets.filter((t) => !!t.unit_out).length;
-
-  const years = db
-    .prepare("SELECT DISTINCT strftime('%Y', datemeet) AS y FROM bookroom WHERE datemeet IS NOT NULL AND datemeet != '' ORDER BY y DESC")
-    .all()
-    .map((r) => r.y)
-    .filter(Boolean);
-
-  res.json({
+  return {
+    filterDesc,
     byDepartment,
     byCategory,
     byStatus,
-    byTechnician: techCounts,
-    internalCount,
-    externalCount,
-    years,
-  });
+    byTechnician,
+    internalCount: tickets.filter((t) => !t.unit_out).length,
+    externalCount: tickets.filter((t) => !!t.unit_out).length,
+  };
+}
+
+app.get('/api/reports/summary', (req, res) => {
+  res.json(getRepairReportData(req.query));
+});
+
+app.get('/api/reports/pdf', (req, res) => {
+  const { section = 'technician', download } = req.query;
+  const data = getRepairReportData(req.query);
+  const isDl = download === '1';
+
+  if (section === 'technician') {
+    const cols = [
+      { label: 'ลำดับ', w: 38, align: 'center' },
+      { label: 'ชื่อช่างผู้รับผิดชอบ', w: 140 },
+      { label: 'จำนวนงาน', w: 65, align: 'center' },
+      { label: 'รายละเอียดงานที่รับผิดชอบ', w: 280 },
+    ];
+    const rows = data.byTechnician.map((t, i) => [i + 1, t.name, t.total, t.jobsSummary || '-']);
+    return generateReportSectionPdf('รายงานสรุปตามช่างผู้รับผิดชอบ', data.filterDesc, cols, rows, res, isDl);
+  }
+  if (section === 'category') {
+    const cols = [
+      { label: 'ลำดับ', w: 42, align: 'center' },
+      { label: 'ประเภทรายการซ่อม', w: 270 },
+      { label: 'จำนวน (ครั้ง)', w: 95, align: 'center' },
+      { label: 'ค่าใช้จ่าย (บาท)', w: 116, align: 'right' },
+    ];
+    const rows = data.byCategory.map((c, i) => [i + 1, c.name, c.total, Number(c.price).toLocaleString()]);
+    return generateReportSectionPdf('รายงานสรุปตามประเภทรายการซ่อม', data.filterDesc, cols, rows, res, isDl);
+  }
+  if (section === 'department') {
+    const cols = [
+      { label: 'ลำดับ', w: 42, align: 'center' },
+      { label: 'หน่วยงาน', w: 270 },
+      { label: 'จำนวน (ครั้ง)', w: 95, align: 'center' },
+      { label: 'ค่าใช้จ่าย (บาท)', w: 116, align: 'right' },
+    ];
+    const rows = data.byDepartment.map((d, i) => [i + 1, d.name, d.total, Number(d.price).toLocaleString()]);
+    return generateReportSectionPdf('รายงานสรุปการแจ้งซ่อมตามหน่วยงาน', data.filterDesc, cols, rows, res, isDl);
+  }
+  const STATUS_NAMES = { 0: 'รอตรวจสอบ', 1: 'กำลังดำเนินการ', 6: 'เสร็จเรียบร้อยแล้ว', 9: 'ยกเลิก' };
+  const cols = [
+    { label: 'รายการ', w: 350 },
+    { label: 'จำนวน (ครั้ง)', w: 173, align: 'center' },
+  ];
+  const rows = [
+    ...data.byStatus.map((s) => [STATUS_NAMES[s.b_status] || s.b_status, s.total]),
+    ['ภายในโรงพยาบาล', data.internalCount],
+    ['หน่วยงานภายนอก (CUP)', data.externalCount],
+  ];
+  return generateReportSectionPdf('รายงานสรุปตามสถานะและพื้นที่', data.filterDesc, cols, rows, res, isDl);
 });
 
 // ==================== CATEGORIES (room) ====================
