@@ -4,6 +4,7 @@ const express = require('express');
 const session = require('express-session');
 const db = require('./src/db');
 const { generateRepairTicketPdf, generateRepairBoardPdf, generateReportSectionPdf } = require('./src/pdf');
+const { registerMophProviderRoutes } = require('./src/mophAuth');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3530);
@@ -78,6 +79,38 @@ app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(() => {
     res.json({ ok: true });
   });
+});
+
+registerMophProviderRoutes(app, {
+  resolveSessionUser: async (profile, opdUser) => {
+    const loginname = String(opdUser.loginname || '').trim();
+    const firstTh = String(profile.firstname_th || '').trim();
+    const lastTh = String(profile.lastname_th || '').trim();
+    const titleTh = String(profile.special_title_th || profile.title_th || '').trim();
+    const cols = 'row_id, title, fname, lname, telephone, unit_id, usertype, puchai';
+    let user = db.prepare(`SELECT ${cols} FROM personaldata WHERE LOWER(puchai) = LOWER(?) LIMIT 1`).get(loginname);
+    if (!user && firstTh && lastTh) {
+      user = db.prepare(`SELECT ${cols} FROM personaldata WHERE fname LIKE ? AND lname LIKE ? LIMIT 1`).get(`%${firstTh}%`, `%${lastTh}%`);
+    }
+    if (!user) {
+      const f = firstTh || String(opdUser.name || loginname).split(/\s+/)[0] || loginname;
+      const l = lastTh || String(opdUser.name || '').split(/\s+/).slice(1).join(' ');
+      const info = db
+        .prepare("INSERT INTO personaldata (title, fname, lname, telephone, unit_id, usertype, puchai, rahuspan) VALUES (?, ?, ?, '', 0, 'user', ?, '')")
+        .run(titleTh, f, l, loginname || `moph_${Date.now()}`);
+      user = db.prepare(`SELECT ${cols} FROM personaldata WHERE row_id = ?`).get(info.lastInsertRowid);
+    }
+    const fullName = `${user.fname || ''} ${user.lname || ''}`.trim() || user.puchai;
+    return {
+      row_id: user.row_id,
+      username: user.puchai,
+      fullName,
+      unit_id: user.unit_id || 0,
+      telephone: user.telephone || '',
+      usertype: user.usertype || 'user',
+      isAdmin: user.usertype === 'adminn',
+    };
+  },
 });
 
 // ==================== STATS & ECO ====================
