@@ -1,4 +1,4 @@
-const mysql = require('mysql2/promise');
+﻿const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || '192.168.2.254',
@@ -11,6 +11,7 @@ const pool = mysql.createPool({
   dateStrings: true,
   charset: 'utf8mb4',
 });
+if (pool.pool) { pool.pool.on('connection', (conn) => conn.query('SET NAMES utf8mb4')); }
 
 (async function ensureColumns() {
   try {
