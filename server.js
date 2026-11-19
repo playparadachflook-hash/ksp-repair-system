@@ -93,7 +93,7 @@ registerMophProviderRoutes(app, {
     if (!user) {
       const f = firstTh || String(opdUser.name || loginname).split(/\s+/)[0] || loginname;
       const l = lastTh || String(opdUser.name || '').split(/\s+/).slice(1).join(' ');
-      const info = await db.run("INSERT INTO personaldata (title, fname, lname, telephone, unit_id, usertype, puchai, rahuspan) VALUES (?, ?, ?, '', 0, 'user', ?, '')", [titleTh, f, l, loginname || `moph_${Date.now()}`);
+      const info = await db.run("INSERT INTO personaldata (title, fname, lname, telephone, unit_id, usertype, puchai, rahuspan) VALUES (?, ?, ?, '', 0, 'user', ?, '')", [titleTh, f, l, loginname || `moph_${Date.now()}`]);
       user = (await db.get(`SELECT ${cols} FROM personaldata WHERE row_id = ?`, [info.lastInsertRowid]));
     }
     const fullName = `${user.fname || ''} ${user.lname || ''}`.trim() || user.puchai;
